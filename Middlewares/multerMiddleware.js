@@ -1,68 +1,70 @@
 const multer = require('multer');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-const s3 = require('../config/s3Config');  // Import AWS S3 configuration
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-// Configure Multer to store files in memory temporarily
-const storage = multer.memoryStorage();
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Multer-Cloudinary storage
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (req, file) => {
+    // Determine folder based on request body or default to 'Products'
+    const folder = req.body.folder || 'Products';
+
+    return {
+      folder: folder,
+      format: 'jpg', // Convert all images to jpg (optional)
+      public_id: `image-${Date.now()}-${file.originalname.split('.')[0]}`, // Custom filename
+    };
+  },
+});
 
 // Multer setup
 const upload = multer({
   storage: storage,
   fileFilter: (req, file, callback) => {
-    if (file.mimetype === 'image/png' || file.mimetype === 'image/jpg' || file.mimetype === 'image/jpeg') {
+    if (
+      file.mimetype === 'image/png' ||
+      file.mimetype === 'image/jpg' ||
+      file.mimetype === 'image/jpeg'
+    ) {
       callback(null, true);
     } else {
       callback(null, false);
-      return callback(new Error("Please upload images in the following formats: JPEG, PNG, JPG."));
+      return callback(
+        new Error("Please upload images in the following formats: JPEG, PNG, JPG.")
+      );
     }
   },
   limits: {
-    fileSize: 10 * 1024 * 1024,  
-    files: 5  
-  }
+    fileSize: 10 * 1024 * 1024, // 10MB
+    files: 5, // Max 5 files
+  },
 });
 
-// Function to upload file to S3 using AWS SDK v3
-const uploadFileToS3 = async (file, folder = 'Products') => {
-  const filename = `image-${Date.now()}-${file.originalname}`;
-  const filePath = `${folder}/${filename}`;
-  console.log(filename)
-
-  const params = {
-    Bucket: process.env.BUCKET_NAME,  // Your S3 bucket name
-    Key: filePath,  // S3 path where the file will be stored
-    Body: file.buffer,  // The file buffer from Multer's memoryStorage
-    ContentType: file.mimetype,  // MIME type of the file
-    // ACL: 'public-read',  // Set access control to allow public read access
-  };
-
-  const client = new S3Client({ region: process.env.AWS_REGION });  // Initialize S3 client with region
-  const command = new PutObjectCommand(params);  // Create the S3 put object command
-  await client.send(command);  // Execute the command to upload the file to S3
-
-  return `https://${process.env.BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${filePath}`;  // Return the public URL of the uploaded file
-};
-
-// Middleware to handle S3 upload for both single and multiple files
-const uploadToS3Middleware = async (req, res, next) => {
+// Middleware to handle uploaded files URLs
+const uploadToCloudinaryMiddleware = async (req, res, next) => {
   try {
-    // Handle single file upload
+    // Single file
     if (req.file) {
-      req.fileUrl = await uploadFileToS3(req.file, req.body.folder);
+      req.fileUrl = req.file.path; // Cloudinary URL
     }
-    
-    // Handle multiple file upload
+
+    // Multiple files
     if (req.files) {
-      req.fileUrls = await Promise.all(
-        req.files.map(file => uploadFileToS3(file, req.body.folder))
-      );
+      req.fileUrls = req.files.map(file => file.path);
     }
-    
+
     next();
   } catch (error) {
-    console.error("Error uploading to S3:", error);
-    res.status(500).json({ error: "Failed to upload file(s) to S3" });
+    console.error("Error uploading to Cloudinary:", error);
+    res.status(500).json({ error: "Failed to upload file(s) to Cloudinary" });
   }
 };
 
-module.exports = { upload, uploadToS3Middleware };
+module.exports = { upload, uploadToCloudinaryMiddleware };

@@ -1,23 +1,34 @@
 const express = require('express');
 const router = express.Router();
-const multerMiddleware =require('../../../Middlewares/multerMiddleware')
-const SliderController = require('../../../Controllers/Admin/Slider/SliderController')
-const jwtVerify=require('../../../Middlewares/jwtMiddleware')
+const multerMiddleware = require('../../../Middlewares/multerMiddleware');
+const SliderController = require('../../../Controllers/Admin/Slider/SliderController');
+const jwtVerify = require('../../../Middlewares/jwtMiddleware');
 
+// Create a new slider with Cloudinary
+router.post(
+  '/create',
+  jwtVerify(['admin']),
+  multerMiddleware.upload.single('image'), // Multer memory storage
+  multerMiddleware.uploadToCloudinaryMiddleware, // Upload to Cloudinary
+  SliderController.createSlider
+);
 
-// create a new slider
-router.post('/create', jwtVerify(['admin']),multerMiddleware.upload.single('image'), multerMiddleware.uploadToS3Middleware, SliderController.createSlider);
+// Get all sliders
+router.get('/', SliderController.getAllSliders);
 
-// get all sliders
-router.get('/', SliderController.getAllSliders)
+// Update slider with Cloudinary
+router.patch(
+  '/:id',
+  jwtVerify(['admin']),
+  multerMiddleware.upload.single('image'), // Multer memory storage
+  multerMiddleware.uploadToCloudinaryMiddleware, // Upload to Cloudinary
+  SliderController.updateSlider
+);
 
-// update slider
-router.patch('/:id', jwtVerify(['admin']),multerMiddleware.upload.single('image'), multerMiddleware.uploadToS3Middleware, SliderController.updateSlider);
-
-// delete slider
+// Delete slider
 router.delete('/:id', jwtVerify(['admin']), SliderController.deleteSlider);
 
-// search slider
-router.get('/search',jwtVerify(['admin']), SliderController.searchSlider)
+// Search slider
+router.get('/search', jwtVerify(['admin']), SliderController.searchSlider);
 
 module.exports = router;
