@@ -279,17 +279,17 @@ exports.placeOrder = async (req, res) => {
     session.endSession();
 
     // mail
-    const userEmail = VerifiedUser.email;
-    const userName = VerifiedUser.name;
-    const subject = "Order Confirmation-Poky Store";
-    const text = `Your order #${order.orderId} has been placed successfully. We'll notify you when your order is on its way!`;
+    // const userEmail = VerifiedUser.email;
+    // const userName = VerifiedUser.name;
+    // const subject = "Order Confirmation-Poky Store";
+    // const text = `Your order #${order.orderId} has been placed successfully. We'll notify you when your order is on its way!`;
 
-    await sendEmail(userEmail, "order_created", {
-      subject: "Order Confirmation - Poky Store",
-      orderId: order.orderId,
-      customerName: userName,
-      totalAmount: finalPayableAmount,
-    });
+    // await sendEmail(userEmail, "order_created", {
+    //   subject: "Order Confirmation - Poky Store",
+    //   orderId: order.orderId,
+    //   customerName: userName,
+    //   totalAmount: finalPayableAmount,
+    // });
     return res.status(201).json({ message: "Order placed successfully", orderId: order._id });
   } catch (err) {
     await session.abortTransaction();
