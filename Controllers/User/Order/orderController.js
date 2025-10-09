@@ -281,11 +281,11 @@ exports.placeOrder = async (req, res) => {
     // mail
     const userEmail = VerifiedUser.email;
     const userName = VerifiedUser.name;
-    const subject = "Order Confirmation-URBAAN COLLECTIONS";
+    const subject = "Order Confirmation-Poky Store";
     const text = `Your order #${order.orderId} has been placed successfully. We'll notify you when your order is on its way!`;
 
     await sendEmail(userEmail, "order_created", {
-      subject: "Order Confirmation - URBAAN COLLECTIONS",
+      subject: "Order Confirmation - Poky Store",
       orderId: order.orderId,
       customerName: userName,
       totalAmount: finalPayableAmount,

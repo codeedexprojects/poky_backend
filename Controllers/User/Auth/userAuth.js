@@ -243,7 +243,7 @@ exports.googleLoginCallback = (req, res, next) => {
     passport.authenticate('google', { session: false }, async (err, user, info) => {
         if (err) {
             // return res.status(500).json({ message: 'Authentication failed', error: err.message });
-            return res.redirect('https://poky.in/login-user?error=Authentication%20Failed');
+            return res.redirect('https://pokystore.in/login-user?error=Authentication%20Failed');
 
         }
         try {
@@ -271,12 +271,12 @@ exports.googleLoginCallback = (req, res, next) => {
             //         role: user.role,
             //     },
             // });
-            res.redirect(`https://poky.in/?Token=${token}&role=${user.role}&userId=${user._id}&name=${encodeURIComponent(user.name)}`);
+            res.redirect(`https://pokystore.in/?Token=${token}&role=${user.role}&userId=${user._id}&name=${encodeURIComponent(user.name)}`);
 
         } catch (error) {
             // res.status(500).json({ message: 'Server error', error: error.message });
             console.log(error)
-            return res.redirect('https://poky.in/login-user/login?error=Server%20Error');
+            return res.redirect('https://pokystore.in/login-user/login?error=Server%20Error');
 
         }
     })(req, res, next);
