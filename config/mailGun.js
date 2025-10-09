@@ -16,9 +16,9 @@ const sendEmail = (to, actionType, variables = {}) => {
   }
 
   const data = {
-    from: "Urbaan Collections <no-reply@urbaan.in>",
+    from: "Poky Store <no-reply@urbaan.in>",
     to,
-    subject: variables.subject || "Urbaan Collections Notification",
+    subject: variables.subject || "Poky Store Notification",
     template: templateName, // Mailgun template name
     "h:X-Mailgun-Variables": JSON.stringify(variables), // Passing variables to the template
   };
