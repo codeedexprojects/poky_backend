@@ -4,65 +4,130 @@ const User = require('../../../Models/User/UserModel');
 const passport = require('passport');
 const NodeCache = require('node-cache');
 const otpGenerator = require('otp-generator');
-const Coupon=require('../../../Models/User/WalkinCoupen')
-const axios = require('axios');
+const Coupon = require('../../../Models/User/WalkinCoupen');
+const nodemailer = require('nodemailer');
 
-const cache = new NodeCache({ stdTTL: 300 });  
-const api_key=process.env.FACTOR_API_KEY
+const cache = new NodeCache({ stdTTL: 300 }); // 5 minutes
+
+// Configure nodemailer
+const transporter = nodemailer.createTransport({
+    service: 'gmail', // You can use other services like Outlook, Yahoo, etc.
+    auth: {
+        user: process.env.EMAIL_USER, // Your email
+        pass: process.env.EMAIL_PASS  // Your email password or app password
+    },
+     tls: {
+        rejectUnauthorized: false // This will disable certificate validation
+    }
+});
+
+// Function to send OTP via email
+const sendOtpEmail = async (email, otp, userName = 'User') => {
+    try {
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Your OTP Verification Code',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #333; text-align: center;">OTP Verification</h2>
+                    <p>Hello ${userName},</p>
+                    <p>Your OTP verification code is:</p>
+                    <div style="background-color: #f4f4f4; padding: 15px; text-align: center; margin: 20px 0;">
+                        <h1 style="color: #333; margin: 0; font-size: 32px; letter-spacing: 5px;">${otp}</h1>
+                    </div>
+                    <p>This OTP is valid for 5 minutes. Please do not share this code with anyone.</p>
+                    <p>If you didn't request this OTP, please ignore this email.</p>
+                    <br>
+                    <p>Best regards,<br>Your App Team</p>
+                </div>
+            `
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`OTP email sent to ${email}: ${info.messageId}`);
+        return true;
+    } catch (error) {
+        console.error('Error sending OTP email:', error);
+        return false;
+    }
+};
 
 // sending otp for registration
 exports.register = async (req, res) => {
-    const { name, phone, password,email, isWalkIn } = req.body; 
+    const { name, phone, password, email, isWalkIn } = req.body;
 
     try {
-        const existingUser = await User.findOne({ phone });
-        if (existingUser) {
+        // Check if user exists by phone or email
+        const existingUserByPhone = await User.findOne({ phone });
+        if (existingUserByPhone) {
             return res.status(400).json({ msg: 'Phone number already exists' });
         }
 
+        const existingUserByEmail = await User.findOne({ email });
+        if (existingUserByEmail) {
+            return res.status(400).json({ msg: 'Email already exists' });
+        }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ msg: 'Invalid email format' });
+        }
+
         // Generate OTP
-        const otp = otpGenerator.generate(6, { digits: true, upperCaseAlphabets: false, specialChars: false });
+        const otp = otpGenerator.generate(6, { 
+            digits: true, 
+            upperCaseAlphabets: false, 
+            lowerCaseAlphabets: false,
+            specialChars: false 
+        });
 
         // Hash the password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        
-      
+        // Store data in cache with email as key
+        cache.set(email, { 
+            name, 
+            phone, 
+            email, 
+            password: hashedPassword, 
+            otp, 
+            isWalkIn 
+        });
 
-       
-        cache.set(phone, { name, phone,email ,password: hashedPassword, otp, isWalkIn });
-
+        // Send OTP via email
+        const emailSent = await sendOtpEmail(email, otp, name);
         
-        const response = await axios.get(`https://2factor.in/API/V1/${api_key}/SMS/${phone}/AUTOGEN/OTP1`);
-        if (response.data.Status !== 'Success') {
-            return res.status(500).json({ message: 'Failed to send OTP. Try again later.' });
+        if (!emailSent) {
+            return res.status(500).json({ message: 'Failed to send OTP email. Try again later.' });
         }
 
-        console.log(`OTP ${otp} sent to phone: ${phone}`); 
-        
+        console.log(`OTP ${otp} sent to email: ${email}`);
 
-        return res.status(200).json({ message: 'OTP sent successfully' });
+        return res.status(200).json({ 
+            message: 'OTP sent successfully to your email',
+            email: email // Return email for client reference
+        });
     } catch (err) {
         console.error(err.message);
         return res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
 
-
 // verify otp and register a user
 exports.verifyOTP = async (req, res) => {
-    const { phone, otp } = req.body;
+    const { email, otp } = req.body;
 
     try {
-        // Retrieve stored data from cache
-        const cachedData = cache.get(phone);
+        // Retrieve stored data from cache using email
+        const cachedData = cache.get(email);
         if (!cachedData) {
             return res.status(400).json({ message: 'OTP invalid or expired' });
         }
 
-        // Verify the OTP with 2Factor API
-        const response = await axios.get(`https://2factor.in/API/V1/${api_key}/SMS/VERIFY3/${phone}/${otp}`);
-        if (response.data.Status !== 'Success') {
+        // Verify the OTP
+        if (cachedData.otp !== otp) {
             return res.status(400).json({ message: 'Invalid OTP. Please try again.' });
         }
 
@@ -70,18 +135,19 @@ exports.verifyOTP = async (req, res) => {
         const newUser = new User({
             name: cachedData.name,
             phone: cachedData.phone,
-            password: cachedData.password,
-            email:cachedData.email
+            email: cachedData.email,
+            password: cachedData.password
         });
-        const savedUser = await newUser.save(); // Ensure the user is fully saved
-        console.log(savedUser)
+        
+        const savedUser = await newUser.save();
+        console.log('User saved:', savedUser);
 
         let newCoupon = null;
         if (cachedData.isWalkIn) {
             const couponCode = `WALK-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
             newCoupon = new Coupon({
                 code: couponCode,
-                userId: savedUser._id, // Use the saved user's _id
+                userId: savedUser._id,
             });
             await newCoupon.save();
         }
@@ -94,12 +160,17 @@ exports.verifyOTP = async (req, res) => {
         );
 
         // Delete the temporary data from cache
-        cache.del(phone);
+        cache.del(email);
 
         return res.status(201).json({
             message: 'User registered successfully',
-            user: { name: savedUser.name, phone: savedUser.phone, userId: savedUser._id },
-            coupon: newCoupon ? newCoupon.code : null, // Check if newCoupon exists
+            user: { 
+                name: savedUser.name, 
+                phone: savedUser.phone, 
+                email: savedUser.email,
+                userId: savedUser._id 
+            },
+            coupon: newCoupon ? newCoupon.code : null,
             token,
         });
     } catch (err) {
@@ -108,68 +179,89 @@ exports.verifyOTP = async (req, res) => {
     }
 };
 
-
-
-
-// Login a user
-exports.login = async (req, res) => {
-    const { phone, password } = req.body;
+// Resend OTP function
+exports.resendOTP = async (req, res) => {
+    const { email } = req.body;
 
     try {
-        const user = await User.findOne({ phone });
+        // Check if there's existing cached data for this email
+        const cachedData = cache.get(email);
         
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+        if (!cachedData) {
+            return res.status(400).json({ message: 'No pending registration found for this email' });
         }
 
-        const isPasswordValid = await bcrypt.compare(password, user.password);
+        // Generate new OTP
+        const newOtp = otpGenerator.generate(6, { 
+            digits: true, 
+            upperCaseAlphabets: false, 
+            lowerCaseAlphabets: false,
+            specialChars: false 
+        });
+
+        // Update cache with new OTP
+        cache.set(email, {
+            ...cachedData,
+            otp: newOtp
+        });
+
+        // Send new OTP via email
+        const emailSent = await sendOtpEmail(email, newOtp, cachedData.name);
         
-        if (!isPasswordValid) {
-            return res.status(401).json({ message: 'Invalid credentials' });
+        if (!emailSent) {
+            return res.status(500).json({ message: 'Failed to resend OTP email. Try again later.' });
         }
 
-        const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        console.log(`New OTP ${newOtp} sent to email: ${email}`);
 
-        const coupon = await Coupon.findOne({ userId: user._id });
-
-        res.status(200).json({
-            message: 'User logged in successfully',
-            userId: user._id, // Added userId
-            phone: user.phone,
-            token: token,
-            coupon // Included coupon in response
+        return res.status(200).json({ 
+            message: 'OTP resent successfully to your email',
+            email: email
         });
     } catch (err) {
-        res.status(500).json({ message: 'Server error', error: err.message });
+        console.error(err.message);
+        return res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
 
-
-
-// otp for forget passsword
+// otp for forget password
 exports.sendForgotPasswordOTP = async (req, res) => {
-    const { phone } = req.body;
+    const { email } = req.body;
 
     try {
-       
-        const user = await User.findOne({ phone });
+        // Find user by email
+        const user = await User.findOne({ email });
         if (!user) {
-            return res.status(404).json({ message: 'User with this phone number does not exist' });
+            return res.status(404).json({ message: 'User with this email does not exist' });
         }
 
-        
-        const response = await axios.get(
-            `https://2factor.in/API/V1/${api_key}/SMS/${phone}/AUTOGEN/OTP1`
-        );
+        // Generate OTP
+        const otp = otpGenerator.generate(6, { 
+            digits: true, 
+            upperCaseAlphabets: false, 
+            lowerCaseAlphabets: false,
+            specialChars: false 
+        });
 
-        if (response.data.Status !== 'Success') {
-            return res.status(500).json({ message: 'Failed to send OTP. Please try again.' });
+        // Store OTP in cache for password reset
+        cache.set(`reset_${email}`, { 
+            email: email,
+            otp: otp 
+        });
+
+        // Send OTP via email
+        const emailSent = await sendOtpEmail(email, otp, user.name);
+        
+        if (!emailSent) {
+            return res.status(500).json({ message: 'Failed to send OTP email. Please try again.' });
         }
 
-        
-        
+        console.log(`Password reset OTP ${otp} sent to email: ${email}`);
 
-        return res.status(200).json({ message: 'OTP sent successfully' });
+        return res.status(200).json({ 
+            message: 'OTP sent successfully to your email for password reset',
+            email: email
+        });
     } catch (err) {
         console.error(err.message);
         return res.status(500).json({ message: 'Server error', error: err.message });
@@ -178,21 +270,28 @@ exports.sendForgotPasswordOTP = async (req, res) => {
 
 // verify otp for password reset
 exports.verifyForgotPasswordOTP = async (req, res) => {
-    const { phone, otp } = req.body;
+    const { email, otp } = req.body;
 
     try {
-        const response = await axios.get(
-            `https://2factor.in/API/V1/${api_key}/SMS/VERIFY3/${phone}/${otp}`
-        );
+        const cachedData = cache.get(`reset_${email}`);
+        
+        if (!cachedData) {
+            return res.status(400).json({ message: 'OTP invalid or expired' });
+        }
 
-        if (response.data.Status !== 'Success') {
+        if (cachedData.otp !== otp) {
             return res.status(400).json({ message: 'Invalid OTP. Please try again.' });
         }
+
+        // Generate temporary token for password reset
         const tempToken = jwt.sign(
-            { phone },
+            { email },
             process.env.JWT_SECRET,
             { expiresIn: '5m' } 
         );
+        
+        // Remove OTP from cache after successful verification
+        cache.del(`reset_${email}`);
         
         return res.status(200).json({ 
             message: 'OTP verified successfully. Use the token to reset password.', 
@@ -210,21 +309,21 @@ exports.resetPassword = async (req, res) => {
     const { tempToken, newPassword } = req.body;
 
     try {
-        
+        // Verify temporary token
         const decoded = jwt.verify(tempToken, process.env.JWT_SECRET);
-        const phone = decoded.phone;
+        const email = decoded.email;
 
-        
-        const user = await User.findOne({ phone });
+        // Find user by email
+        const user = await User.findOne({ email });
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-       
+        // Hash new password
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-        
-        await User.updateOne({ phone }, { password: hashedPassword });
+        // Update password
+        await User.updateOne({ email }, { password: hashedPassword });
 
         return res.status(200).json({ message: 'Password updated successfully' });
     } catch (err) {
@@ -236,6 +335,48 @@ exports.resetPassword = async (req, res) => {
         }
 
         return res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+// Login a user (unchanged, but you might want to allow email login too)
+exports.login = async (req, res) => {
+    const { phone, password, email } = req.body;
+
+    try {
+        // Allow login with either phone or email
+        let user;
+        if (phone) {
+            user = await User.findOne({ phone });
+        } else if (email) {
+            user = await User.findOne({ email });
+        } else {
+            return res.status(400).json({ message: 'Phone or email is required' });
+        }
+        
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        
+        if (!isPasswordValid) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
+
+        const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+
+        const coupon = await Coupon.findOne({ userId: user._id });
+
+        res.status(200).json({
+            message: 'User logged in successfully',
+            userId: user._id,
+            phone: user.phone,
+            email: user.email,
+            token: token,
+            coupon
+        });
+    } catch (err) {
+        res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
 
