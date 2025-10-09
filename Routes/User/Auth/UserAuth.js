@@ -18,11 +18,11 @@ router.post('/forgot-password/verify-otp', userController.verifyForgotPasswordOT
 // reset password after verification
 router.patch('/forgot-password/reset-password', userController.resetPassword);
 // Google Login
-// router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 // Google Login Callback
-// router.get('/google/callback', userController.googleLoginCallback);
+router.get('/google/callback', userController.googleLoginCallback);
 // facebook login
-// router.get('/facebook', passport.authenticate('facebook', { scope: ['email'] }));
+router.get('/facebook', passport.authenticate('facebook', { scope: ['email'] }));
 // Facebook Login Callback
-// router.get('/facebook/callback', userController.facebookLoginCallback);
+router.get('/facebook/callback', userController.facebookLoginCallback);
 module.exports = router;

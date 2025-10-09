@@ -239,71 +239,70 @@ exports.resetPassword = async (req, res) => {
     }
 };
 
-// Google Login Callback
-// exports.googleLoginCallback = (req, res, next) => {
-//     passport.authenticate('google', { session: false }, async (err, user, info) => {
-//         if (err) {
-//             // return res.status(500).json({ message: 'Authentication failed', error: err.message });
-//             return res.redirect('https://urbaan.in/login-user?error=Authentication%20Failed');
+exports.googleLoginCallback = (req, res, next) => {
+    passport.authenticate('google', { session: false }, async (err, user, info) => {
+        if (err) {
+            // return res.status(500).json({ message: 'Authentication failed', error: err.message });
+            return res.redirect('https://poky.in/login-user?error=Authentication%20Failed');
 
-//         }
-//         try {
-//             // Check if a user with this email exists
-//             const existingUser = await User.findOne({ email: user.email });
-//             if (existingUser) {
-//                 user = existingUser; // Link to existing user
-//             } else {
-//                 // Create a new user if not found
-//                 user = await User.create({
-//                     name: user.name,
-//                     email: user.email,
-//                     googleId: user.id,
-//                 });
-//             }
-//             // Generate JWT token
-//             const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
-//             // res.status(200).json({
-//             //     message: 'Google login successful',
-//             //     token,
-//             //     user: {
-//             //         name: user.name,
-//             //         userId:user._id,
-//             //         email: user.email,
-//             //         role: user.role,
-//             //     },
-//             // });
-//             res.redirect(`https://urbaan.in/?Token=${token}&role=${user.role}&userId=${user._id}&name=${encodeURIComponent(user.name)}`);
+        }
+        try {
+            // Check if a user with this email exists
+            const existingUser = await User.findOne({ email: user.email });
+            if (existingUser) {
+                user = existingUser; // Link to existing user
+            } else {
+                // Create a new user if not found
+                user = await User.create({
+                    name: user.name,
+                    email: user.email,
+                    googleId: user.id,
+                });
+            }
+            // Generate JWT token
+            const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+            // res.status(200).json({
+            //     message: 'Google login successful',
+            //     token,
+            //     user: {
+            //         name: user.name,
+            //         userId:user._id,
+            //         email: user.email,
+            //         role: user.role,
+            //     },
+            // });
+            res.redirect(`https://poky.in/?Token=${token}&role=${user.role}&userId=${user._id}&name=${encodeURIComponent(user.name)}`);
 
-//         } catch (error) {
-//             // res.status(500).json({ message: 'Server error', error: error.message });
-//             console.log(error)
-//             return res.redirect('https://urbaan.in/login-user/login?error=Server%20Error');
+        } catch (error) {
+            // res.status(500).json({ message: 'Server error', error: error.message });
+            console.log(error)
+            return res.redirect('https://poky.in/login-user/login?error=Server%20Error');
 
-//         }
-//     })(req, res, next);
-// };
+        }
+    })(req, res, next);
+};
 // // Facebook Login Callback
-// exports.facebookLoginCallback = (req, res, next) => {
-//     passport.authenticate('facebook', { session: false }, (err, user) => {
-//         if (err) {
-//             return res.status(500).json({ message: 'Authentication failed', error: err.message });
-//         }
-//         if (!user) {
-//             return res.status(401).json({ message: 'User not found' });
-//         }
-//         // Generate a JWT token for the user
-//         const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
-//         // Send the response with token and user info
-//         res.status(200).json({
-//             message: 'Facebook login successful',
-//             token,
-//             user: {
-//                 name: user.name,
-//                 email: user.email,
-//                 role: user.role,
-//             },
-//         });
-//     })(req, res, next);
-// };
+exports.facebookLoginCallback = (req, res, next) => {
+    passport.authenticate('facebook', { session: false }, (err, user) => {
+        if (err) {
+            return res.status(500).json({ message: 'Authentication failed', error: err.message });
+        }
+        if (!user) {
+            return res.status(401).json({ message: 'User not found' });
+        }
+        // Generate a JWT token for the user
+        const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        // Send the response with token and user info
+        res.status(200).json({
+            message: 'Facebook login successful',
+            token,
+            user: {
+                name: user.name,
+                email: user.email,
+                role: user.role,
+            },
+        });
+    })(req, res, next);
+};
 
 
