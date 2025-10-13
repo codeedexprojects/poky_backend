@@ -149,23 +149,21 @@ exports.updateProduct = async (req, res) => {
 exports.deleteProductImage = async (req, res) => {
   try {
     const { id } = req.params;
-    const { imagePath } = req.body;
+    const { imageName } = req.body; 
 
     const product = await Product.findById(id);
+    
     if (!product) return res.status(404).json({ message: 'Product not found' });
+    
 
-    if (product.images.length === 1 && product.images.includes(imagePath)) {
+    if (product.images.length === 1 && product.images.includes(imageName)) {
       return res.status(400).json({ message: 'At least one product image is required' });
     }
 
-    const updatedImages = product.images.filter(img => img !== imagePath);
+    const updatedImages = product.images.filter(img => img !== imageName);
     if (updatedImages.length === product.images.length) {
       return res.status(400).json({ message: 'Image not found in product' });
     }
-
-    // Delete image file from local storage
-    if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
-
     product.images = updatedImages;
     await product.save();
 
