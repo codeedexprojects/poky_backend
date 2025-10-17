@@ -3,9 +3,17 @@ const mongoose = require('mongoose');
 const productSchema = new mongoose.Schema({
   title: { type: String, required: [true, "Product title is required"] },
   product_Code: { type: String, required: [true, "Product Code is required"], unique: true },
-  category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: [true, "Product category is required"] },
-  subcategory: { type: mongoose.Schema.Types.ObjectId, ref: 'SubCategory', required: [true, "Product subcategory is required"] },
-  actualPrice: { type: Number, required: [true, "Actual price is required"] },
+category: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Category', 
+    required: [true, "At least one product category is required"] 
+  }],
+  subcategory: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'SubCategory', 
+    required: [true, "At least one product subcategory is required"] 
+  }],
+    actualPrice: { type: Number, required: [true, "Actual price is required"] },
   discount: { type: Number, default: 0 },
   offerPrice: { type: Number, required: [true, "Offer price is required"] },
   // deliveryCharge:{ type:String , required:[ true,"Delivery charge is required"]},

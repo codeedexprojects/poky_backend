@@ -3,7 +3,7 @@ const fs = require('fs');
 
 // Create new slider
 exports.createSlider = async (req, res) => {
-    const { title, link, category, label } = req.body;
+    const { title, category, label } = req.body;
 
     if (!req.file) {
         return res.status(400).json({ message: "Please upload an image" });
@@ -12,7 +12,7 @@ exports.createSlider = async (req, res) => {
     try {
         const slider = new Slider({
             title,
-            link,
+           
             category,
             label,
             image: req.file.path, // Local file path

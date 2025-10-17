@@ -99,7 +99,8 @@ exports.getProductsByCategoryId = async (req, res) => {
     const { userId } = req.query;
     const categoryId = req.params.categoryId;
 
-    const products = await Product.find({ category: categoryId })
+    // Use $in to find products that have this category in their categories array
+    const products = await Product.find({ category: { $in: [categoryId] } })
       .populate('category')
       .populate('subcategory')
       .sort({ createdAt: -1 })
@@ -117,7 +118,6 @@ exports.getProductsByCategoryId = async (req, res) => {
       }
     }
 
-    // Add reviews data and wishlist status
     const productsWithReviews = await Promise.all(
       products.map(async (product) => {
         const reviewsData = await getProductReviewsData(product._id);
@@ -135,13 +135,17 @@ exports.getProductsByCategoryId = async (req, res) => {
   }
 };
 
-// Get products by category and subcategory with reviews
+// Get products by category and subcategory ID
 exports.getProductsByCategoryAndSubcategoryId = async (req, res) => {
   try {
     const { categoryId, subcategoryId } = req.params;
     const { userId } = req.query;
 
-    const products = await Product.find({ category: categoryId, subcategory: subcategoryId })
+    // Use $in for both category and subcategory arrays
+    const products = await Product.find({ 
+      category: { $in: [categoryId] }, 
+      subcategory: { $in: [subcategoryId] } 
+    })
       .populate('category')
       .populate('subcategory')
       .lean();
