@@ -22,17 +22,32 @@ exports.addProduct = async (req, res) => {
     try {
       // Handle categories - can be string or array
       if (req.body.category) {
-        categories = typeof req.body.category === "string" 
-          ? JSON.parse(req.body.category) 
-          : (Array.isArray(req.body.category) ? req.body.category : [req.body.category]);
-      }
-      
-      // Handle subcategories - can be string or array
-      if (req.body.subcategory) {
-        subcategories = typeof req.body.subcategory === "string" 
-          ? JSON.parse(req.body.subcategory) 
-          : (Array.isArray(req.body.subcategory) ? req.body.subcategory : [req.body.subcategory]);
-      }
+  if (Array.isArray(req.body.category)) {
+    categories = req.body.category;
+  } else if (typeof req.body.category === "string") {
+    try {
+      const parsed = JSON.parse(req.body.category);
+      categories = Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      categories = [req.body.category]; // plain string (single ID)
+    }
+  }
+}
+
+// Handle subcategories the same way
+if (req.body.subcategory) {
+  if (Array.isArray(req.body.subcategory)) {
+    subcategories = req.body.subcategory;
+  } else if (typeof req.body.subcategory === "string") {
+    try {
+      const parsed = JSON.parse(req.body.subcategory);
+      subcategories = Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      subcategories = [req.body.subcategory];
+    }
+  }
+}
+
     } catch (parseError) {
       return res.status(400).json({ 
         error: "Invalid categories/subcategories format", 
@@ -132,26 +147,34 @@ exports.updateProduct = async (req, res) => {
     const updatedProductData = { ...req.body, images: [...existingImages, ...newImages] };
 
     // Parse categories if provided
-    if (req.body.category) {
-      try {
-        updatedProductData.category = typeof req.body.category === "string" 
-          ? JSON.parse(req.body.category) 
-          : (Array.isArray(req.body.category) ? req.body.category : [req.body.category]);
-      } catch (err) {
-        return res.status(400).json({ message: "Invalid category format" });
-      }
+   if (req.body.category) {
+  if (Array.isArray(req.body.category)) {
+    updatedProductData.category = req.body.category;
+  } else if (typeof req.body.category === "string") {
+    try {
+      const parsed = JSON.parse(req.body.category);
+      updatedProductData.category = Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      updatedProductData.category = [req.body.category]; // plain string
     }
+  }
+}
+
 
     // Parse subcategories if provided
     if (req.body.subcategory) {
-      try {
-        updatedProductData.subcategory = typeof req.body.subcategory === "string" 
-          ? JSON.parse(req.body.subcategory) 
-          : (Array.isArray(req.body.subcategory) ? req.body.subcategory : [req.body.subcategory]);
-      } catch (err) {
-        return res.status(400).json({ message: "Invalid subcategory format" });
-      }
+  if (Array.isArray(req.body.subcategory)) {
+    updatedProductData.subcategory = req.body.subcategory;
+  } else if (typeof req.body.subcategory === "string") {
+    try {
+      const parsed = JSON.parse(req.body.subcategory);
+      updatedProductData.subcategory = Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      updatedProductData.subcategory = [req.body.subcategory];
     }
+  }
+}
+
 
     // Parse sizeChartRefs
     if (req.body.sizeChartRefs) {
